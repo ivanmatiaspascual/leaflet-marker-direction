@@ -81,11 +81,7 @@ L.AngleIcon = L.Icon.extend({
 	 * @return {L.AngleIcon} this
 	 */
 	setAngle: function (angle) {
-
-		if (!Number.isNaN(angle)) {
-			this._angle = angle % 360;
-		}
-
+		this._angle = angle % 360;
 		return this;
 	},
 
@@ -100,6 +96,7 @@ L.AngleIcon = L.Icon.extend({
 L.DirectionMarker = L.Marker.extend({
 
 	_latLngSouth: null,
+	_latLngNorth: null,
 
 	/**
 	 * @override
@@ -127,43 +124,82 @@ L.DirectionMarker = L.Marker.extend({
 		});
 
 		this._latLngSouth = latLng;
+		this._latLngNorth = latLng;
 
 		L.Marker.prototype.initialize.call(this, latLng, options);
 	},
 
 	/**
-	 * @param {L.LatLng} latLng Point south
 	 * @return {L.DirectionMarker} this
 	 */
-	setLatLngSouth: function (latLng) {
-		let latLngNorth = this._latlng;
+	setIcon: function (icon) {
+		throw new TypeError("It should not be used.");
+	},
 
+	/**
+	 * @param {@link https://leafletjs.com/reference-1.4.0.html#latlng L.LatLng} latLngSouth Point south
+	 * @param {@link https://leafletjs.com/reference-1.4.0.html#latlng L.LatLng} latLngNorth Point north
+	 * @return {number} angle
+	 */
+	_calcAngle: function(latLngSouth, latLngNorth) {
 		let angle = 0;
-		if (latLng.lng == latLngNorth.lng && latLng.lat > latLngNorth.lat) { // when lnggitude or latitude is equal
+		if (latLngSouth.lng == latLngNorth.lng && latLngSouth.lat > latLngNorth.lat) { // when lnggitude or latitude is equal
 			angle = Math.PI;
-		} else if (latLng.lng == latLngNorth.lng && latLng.lat < latLngNorth.lat) {
+		} else if (latLngSouth.lng == latLngNorth.lng && latLngSouth.lat < latLngNorth.lat) {
 			angle = 0;
-		} else if (latLng.lng > latLngNorth.lng && latLng.lat == latLngNorth.lat) {
+		} else if (latLngSouth.lng > latLngNorth.lng && latLngSouth.lat == latLngNorth.lat) {
 			angle = -(Math.PI / 2);
-		} else if (latLng.lng < latLngNorth.lng && latLng.lat == latLngNorth.lat) {
+		} else if (latLngSouth.lng < latLngNorth.lng && latLngSouth.lat == latLngNorth.lat) {
 			angle = Math.PI / 2;
 		} else { // lnggitude and latitude are not equal
-			let x1 = latLng.lat * Math.pow(10, 12);
+			let x1 = latLngSouth.lat * Math.pow(10, 12);
 			let x2 = latLngNorth.lat * Math.pow(10, 12);
-			let y1 = latLng.lng * Math.pow(10, 12);
+			let y1 = latLngSouth.lng * Math.pow(10, 12);
 			let y2 = latLngNorth.lng * Math.pow(10, 12);
 
 			angle = Math.atan2(y2 - y1, x2 - x1)
 		}
 
-		this.options.icon.setAngle(angle);
-		this._latLngSouth = latLng;
+		return angle;
+	},
+
+	/**
+	 * @param {@link https://leafletjs.com/reference-1.4.0.html#latlng L.LatLng} latLng Point north
+	 * @return {L.DirectionMarker} this
+	 */
+	setLatLngNorth: function (latLng) {
+		this._latLngSouth = this._latlng;
+		this._latLngNorth = latLng;
+
+		let angle = this._calcAngle(this._latLngSouth, this._latLngNorth);
+		this.setAngle(angle);
 
 		return this;
 	},
 
 	/**
-	 * @return {L.LatLng} latLng Point south
+	 * @return {@link https://leafletjs.com/reference-1.4.0.html#latlng L.LatLng} latLng Point south
+	 */
+	getLatLngNorth: function () {
+		return this._latLngNorth;
+	},
+
+	/**
+	 * @param {@link https://leafletjs.com/reference-1.4.0.html#latlng L.LatLng} latLng Point south
+	 * @return {L.DirectionMarker} this
+	 */
+	setLatLngSouth: function (latLng) {
+		this._latLngSouth = latLng;
+		this._latLngNorth = this._latlng;
+
+		let angle = this._calcAngle(this._latLngSouth, this._latLngNorth);
+		this.setAngle(angle);
+
+		return this;
+	},
+
+	/**
+	 * @return {@link https://leafletjs.com/reference-1.4.0.html#latlng L.LatLng} latLng Point south
 	 */
 	getLatLngSouth: function () {
 		return this._latLngSouth;
@@ -174,7 +210,18 @@ L.DirectionMarker = L.Marker.extend({
 	 * @return {L.DirectionMarker} this
 	 */
 	setAngle: function (angle) {
-		this.options.icon.setAngle(angle);
+		if (this.options.icon.getAngle() !== angle) {
+			this.options.icon.setAngle(angle);
+
+			if (this._map) { // this._map es el layer al que esta marca fue adherido con L.Layer.addTo()
+				this._initIcon();
+				this.update();
+			}
+
+			if (this._popup) {
+				this.bindPopup(this._popup, this._popup.options);
+			}
+		}
 		return this;
 	},
 
