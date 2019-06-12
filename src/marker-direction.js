@@ -27,7 +27,13 @@ L.AngleIcon = L.Icon.extend({
         var s = this.options.iconSize;
         e.width = s.x;
         e.height = s.y;
-        this.ctx = e.getContext("2d");
+        /*
+		 * https://www.456bereastreet.com/archive/201202/using_max-width_on_images_can_make_them_disappear_in_ie8/
+		 * If you try to integrate with some ui framework that use canvas or img max-width to be responsive
+		 * the images disappear. That avoid that.
+		 */
+		e.style.maxWidth = "none";
+		this.ctx = e.getContext("2d");
         this.draw(e.getContext("2d"), s.x, s.y);
         return e;
     },
