@@ -14,6 +14,23 @@ L.AngleIcon = L.Icon.extend({
 	},
 
 	/**
+	 * @private
+	 * @param {@link https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D CanvasRenderingContext2D} context
+	 * @return {L.AngleIcon} this
+	 */
+	_drawImage: function (context) {
+		let x = this.options.iconSize.x / 2;
+		let y = this.options.iconSize.y / 2;
+		context.translate(x, y);
+		context.rotate(this._angle);
+		context.translate(-x, -y);
+		let dx = (this.options.iconSize.x - this.options.htmlImageElement.width) / 2;
+		let dy = (this.options.iconSize.y - this.options.htmlImageElement.height) / 2;
+		context.drawImage(this.options.htmlImageElement, dx, dy);
+		return this;
+	},
+
+	/**
 	 * @override
 	 * @param {object} options
 	 * @param {HTMLImageElement} options.htmlImageElement Tag <img>
@@ -27,6 +44,17 @@ L.AngleIcon = L.Icon.extend({
 		options.iconSize = new L.Point(hypotenuse, hypotenuse);
 
 		L.Icon.prototype.initialize.call(this, options);
+	},
+
+	/**
+	 * @param {HTMLImageElement} options.htmlImageElement Tag <img>
+	 */
+	setHTMLImageElement: function (htmlImageElement) {
+		let hypotenuse = Math.hypot(htmlImageElement.width, htmlImageElement.height);
+		this.options.htmlImageElement = htmlImageElement;
+		this.options.iconSize = new L.Point(hypotenuse, hypotenuse);
+
+		return this;
 	},
 
 	/**
@@ -64,17 +92,6 @@ L.AngleIcon = L.Icon.extend({
 		return canvas;
 	},
 
-	_drawImage: function (context) {
-		let x = this.options.iconSize.x / 2;
-		let y = this.options.iconSize.y / 2;
-		context.translate(x, y);
-		context.rotate(this._angle);
-		context.translate(-x, -y);
-		let dx = (this.options.iconSize.x - this.options.htmlImageElement.width) / 2;
-		let dy = (this.options.iconSize.y - this.options.htmlImageElement.height) / 2;
-		context.drawImage(this.options.htmlImageElement, dx, dy);
-	},
-
 	/**
 	 * Set the angle between the maker and the north
 	 * @param {number} angle Radians
@@ -99,41 +116,19 @@ L.DirectionMarker = L.Marker.extend({
 	_latLngNorth: null,
 
 	/**
-	 * @override
-	 * @param {object} options
-	 * @param {HTMLImageElement} [options.htmlImageElement] Tag <img>, la imagen ya preparada tiene prioridad sobre svg recibida
-	 * @param {SVGSVGElement} [options.svgSVGElement] Tag <svg>, si no tengo la image preparada, prepara una con la svg recibida
+	 * @private
+	 * @param {SVGSVGElement} svgSVGElement
+	 * @return {HTMLImageElement}
 	 */
-	initialize: function (latLng, options) {
+	_toHTMLImageElement: function (svgSVGElement) {
+		let width = svgSVGElement.getAttribute("width");
+		let height = svgSVGElement.getAttribute("height");
+		let htmlImageElement = new Image(width, height);
 
-		if (!options.htmlImageElement) {
-			let svgSVGElement = options.svgSVGElement;
+		let xml = (new XMLSerializer).serializeToString(svgSVGElement);
+		htmlImageElement.src = "data:image/svg+xml;charset=utf-8," + xml;
 
-			let htmlImageElement = new Image();
-			htmlImageElement.width = svgSVGElement.getAttribute("width");
-			htmlImageElement.height = svgSVGElement.getAttribute("height");
-
-			let xml = (new XMLSerializer).serializeToString(svgSVGElement);
-			htmlImageElement.src = "data:image/svg+xml;charset=utf-8," + xml;
-
-			options.htmlImageElement = htmlImageElement;
-		}
-
-		options.icon = new L.AngleIcon({
-			htmlImageElement: options.htmlImageElement
-		});
-
-		this._latLngSouth = latLng;
-		this._latLngNorth = latLng;
-
-		L.Marker.prototype.initialize.call(this, latLng, options);
-	},
-
-	/**
-	 * @return {L.DirectionMarker} this
-	 */
-	setIcon: function (icon) {
-		throw new TypeError("It should not be used.");
+		return htmlImageElement;
 	},
 
 	/**
@@ -151,7 +146,7 @@ L.DirectionMarker = L.Marker.extend({
 			angle = -(Math.PI / 2);
 		} else if (latLngSouth.lng < latLngNorth.lng && latLngSouth.lat == latLngNorth.lat) {
 			angle = Math.PI / 2;
-		} else { // lnggitude and latitude are not equal
+		} else { // longitude and latitude are not equal
 			let x1 = latLngSouth.lat * Math.pow(10, 12);
 			let x2 = latLngNorth.lat * Math.pow(10, 12);
 			let y1 = latLngSouth.lng * Math.pow(10, 12);
@@ -161,6 +156,67 @@ L.DirectionMarker = L.Marker.extend({
 		}
 
 		return angle;
+	},
+
+	/**
+	 * @private
+	 * @return {L.DirectionMarker} this
+	 */
+	_refresh: function () {
+		if (this._map) { // this._map es el layer al que esta marca fue adherido con L.Layer.addTo()
+			this._initIcon(); // refresca el icono
+			this.update(); // refresca la posicion geografica
+		}
+
+		if (this._popup) {
+			this.bindPopup(this._popup, this._popup.options); // refresca el popup
+		}
+
+		return this;
+	},
+
+	/**
+	 * @override
+	 * @param {object} options
+	 * @param {HTMLImageElement} [options.htmlImageElement] Tag <img>, la imagen ya preparada tiene prioridad sobre svg recibida
+	 * @param {SVGSVGElement} [options.svgSVGElement] Tag <svg>, si no tengo la image preparada, prepara una con la svg recibida
+	 */
+	initialize: function (latLng, options) {
+
+		if (!options.htmlImageElement) {
+			options.htmlImageElement = this._toHTMLImageElement(options.svgSVGElement);
+		}
+
+		options.icon = new L.AngleIcon({
+			htmlImageElement: options.htmlImageElement
+		});
+
+		this._latLngSouth = latLng;
+		this._latLngNorth = latLng;
+
+		L.Marker.prototype.initialize.call(this, latLng, options);
+	},
+
+	/**
+	 * @return {L.DirectionMarker} this
+	 */
+	setIcon: function (icon) {
+		throw new TypeError();
+	},
+
+	/**
+	 * @param {SVGSVGElement} svgSVGElement Tag <svg>,  prepara una Iamge con el svg recibida
+	 * @return {L.DirectionMarker} this
+	 */
+	setSVGSVGElement: function (svgSVGElement) {
+		if (this.options.svgSVGElement !== svgSVGElement) {
+			this.options.svgSVGElement = svgSVGElement;
+			this.options.htmlImageElement = this._toHTMLImageElement(svgSVGElement);
+			this.options.icon.setHTMLImageElement(this.options.htmlImageElement);
+			this._refresh();
+		}
+
+		return this;
 	},
 
 	/**
@@ -212,16 +268,9 @@ L.DirectionMarker = L.Marker.extend({
 	setAngle: function (angle) {
 		if (this.options.icon.getAngle() !== angle) {
 			this.options.icon.setAngle(angle);
-
-			if (this._map) { // this._map es el layer al que esta marca fue adherido con L.Layer.addTo()
-				this._initIcon();
-				this.update();
-			}
-
-			if (this._popup) {
-				this.bindPopup(this._popup, this._popup.options);
-			}
+			this._refresh();
 		}
+
 		return this;
 	},
 
