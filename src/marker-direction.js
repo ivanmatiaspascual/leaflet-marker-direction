@@ -38,20 +38,26 @@ L.AngleIcon = L.Icon.extend({
 	 * @param {string} [options.textColor] Color de la etiqueta
 	 */
 	initialize: function (options) {
-
-		// la imagen es rectangular, hay que cubrir cualquier todos los angulos de giro que podria llegar a tener el icono si la imagen rotara
-		let hypotenuse = Math.hypot(options.htmlImageElement.width, options.htmlImageElement.height);
-		options.iconSize = new L.Point(hypotenuse, hypotenuse);
-
 		L.Icon.prototype.initialize.call(this, options);
+
+		let point = null;
+		if (this.options.htmlImageElement) {
+			// la imagen es rectangular, hay que cubrir cualquier todos los angulos de giro que podria llegar a tener el icono si la imagen rotara
+			let hypotenuse = Math.hypot(this.options.htmlImageElement.width, this.options.htmlImageElement.height);
+			point = new L.Point(hypotenuse, hypotenuse);
+		} else {
+			point = new L.Point(0, 0);
+		}
+		this.options.iconSize = point;
 	},
 
 	/**
 	 * @param {HTMLImageElement} options.htmlImageElement Tag <img>
 	 */
 	setHTMLImageElement: function (htmlImageElement) {
-		let hypotenuse = Math.hypot(htmlImageElement.width, htmlImageElement.height);
 		this.options.htmlImageElement = htmlImageElement;
+		// la imagen es rectangular, hay que cubrir cualquier todos los angulos de giro que podria llegar a tener el icono si la imagen rotara
+		let hypotenuse = Math.hypot(htmlImageElement.width, htmlImageElement.height);
 		this.options.iconSize = new L.Point(hypotenuse, hypotenuse);
 
 		return this;
@@ -182,19 +188,18 @@ L.DirectionMarker = L.Marker.extend({
 	 * @param {SVGSVGElement} [options.svgSVGElement] Tag <svg>, si no tengo la image preparada, prepara una con la svg recibida
 	 */
 	initialize: function (latLng, options) {
+		L.Marker.prototype.initialize.call(this, latLng, options);
 
-		if (!options.htmlImageElement) {
-			options.htmlImageElement = this._toHTMLImageElement(options.svgSVGElement);
+		if (!this.options.htmlImageElement && this.options.svgSVGElement) {
+			this.options.htmlImageElement = this._toHTMLImageElement(this.options.svgSVGElement);
 		}
 
-		options.icon = new L.AngleIcon({
-			htmlImageElement: options.htmlImageElement
+		this.options.icon = new L.AngleIcon({
+			htmlImageElement: this.options.htmlImageElement
 		});
 
 		this._latLngSouth = latLng;
 		this._latLngNorth = latLng;
-
-		L.Marker.prototype.initialize.call(this, latLng, options);
 	},
 
 	/**
