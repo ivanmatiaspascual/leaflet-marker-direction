@@ -67,7 +67,7 @@ L.AngleIcon = L.Icon.extend({
      */
     drwaImage : function(ctx , img, course, w, h){
         console.log(img.src)
-        img.onload = function(){
+        var ctxDrawImage = function(){
             //平移坐标原点
             ctx.translate(40,30);
             //旋转画布
@@ -76,7 +76,12 @@ L.AngleIcon = L.Icon.extend({
             //画图
             ctx.drawImage(img,w,h);
             console.log(img.src)
-        }
+		}
+		if (!img.complete || img.naturalHeight === 0) {
+			img.onload = ctxDrawImage
+		} else {
+			ctxDrawImage()
+		}
     },
 
     /**
