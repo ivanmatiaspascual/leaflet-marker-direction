@@ -1,177 +1,191 @@
-/*
- * LEAFLET.MARKER_DRECTION
- * vesion 0.0.1
- * @author Thomas Zou
- * @date 10/1/2018
+/**
+ * LEAFLET.MARKER_DIRECTION
+ * vesion 0.1.0
+ * @author Ivan Matias Pascual
  */
-
-/* Angle ICON */
 L.AngleIcon = L.Icon.extend({
-    // default value
-    options: {
-        angle: 0,
-        iconSize: new L.Point(80,60),	// canvas  size
-        className: "leaflet-boat-icon",
-        course: 0,    		   			// angle
-        labelAnchor: [10, -10],			// test loaction
-        pointType:0,			   		// pointType
-        ciFlag :false,
-        label:'',
-        textColor:'red',
-        img:null
-    },
 
-    createIcon: function () {
-        var e = document.createElement("canvas");
-        this._setIconStyles(e, "icon");
-        var s = this.options.iconSize;
-        e.width = s.x;
-        e.height = s.y;
-        /*
+	_angle: 0,
+
+	// default
+	options: {
+		text: null,
+		textColor: "black"
+	},
+
+	/**
+	 * @override
+	 * @param {object} options
+	 * @param {HTMLImageElement} options.htmlImageElement Tag <img>
+	 * @param {string} [options.text] Una etiqueta
+	 * @param {string} [options.textColor] Color de la etiqueta
+	 */
+	initialize: function (options) {
+
+		// la imagen es rectangular, hay que cubrir cualquier todos los angulos de giro que podria llegar a tener el icono si la imagen rotara
+		let hypotenuse = Math.hypot(options.htmlImageElement.width, options.htmlImageElement.height);
+		options.iconSize = new L.Point(hypotenuse, hypotenuse);
+
+		L.Icon.prototype.initialize.call(this, options);
+	},
+
+	/**
+	 * Se ejecuta cada vez que se adhiere a un layer.
+	 * @override
+	 */
+	createIcon: function (oldIcon) {
+		let canvas = document.createElement("canvas");
+		this._setIconStyles(canvas, "icon");
+		canvas.width = this.options.iconSize.x;
+		canvas.height = this.options.iconSize.y;
+		/*
 		 * https://www.456bereastreet.com/archive/201202/using_max-width_on_images_can_make_them_disappear_in_ie8/
 		 * If you try to integrate with some ui framework that use canvas or img max-width to be responsive
 		 * the images disappear. That avoid that.
 		 */
-		e.style.maxWidth = "none";
-		this.ctx = e.getContext("2d");
-        this.draw(e.getContext("2d"), s.x, s.y);
-        return e;
-    },
+		canvas.style.maxWidth = "none";
 
-    draw: function(ctx, w, h) {
+		let context = canvas.getContext("2d");
 
-        if(!ctx)
-            return;
-        var x = this.x;
-        var y = this.y;
-
-        var course = this.options.course;
-
-        ctx.font="10px Courier New";
-        ctx.fillStyle = this.options.textColor;
-        if(this.options.ciFlag){
-            var text = this.options.label;
-            ctx.fillText(text, 0, 20);
-        }
-
-        this.drwaImage(ctx, this.options.img, course, 35, 20);
-    },
-
-    /**
-     * draw image by canvas
-     * @param ctx canvas
-     * @param img image
-     * @param course angle
-     * @param w width
-     * @param h height
-     */
-    drwaImage : function(ctx , img, course, w, h){
-        console.log(img.src)
-        var ctxDrawImage = function(){
-            //平移坐标原点
-            ctx.translate(40,30);
-            //旋转画布
-            ctx.rotate(course);
-            ctx.translate(-40,-30);
-            //画图
-            ctx.drawImage(img,w,h);
-            console.log(img.src)
+		if (this.options.text) {
+			context.font = "10px Courier New";
+			context.fillStyle = this.options.textColor;
+			context.fillText(this.options.text, 0, 20);
 		}
-		if (!img.complete || img.naturalHeight === 0) {
-			img.onload = ctxDrawImage
-		} else {
-			ctxDrawImage()
+
+		if (!this.options.htmlImageElement.complete || this.options.htmlImageElement.naturalHeight === 0) {
+			this.options.htmlImageElement.onload = () => { // postergamos hasta que htmlImageElement este lista
+				this._drawImage(context);
+			};
+		} else { // si la imagen ya esta cargada
+			this._drawImage(context);
 		}
-    },
 
-    /**
-     * 获得两点之间方向角 (Get the direction angle between two points)
-     * 根据地球上两点之间的经纬度计算两点之间与正北方向的夹角
-     * (According to the latitude and longitude between two points on earth,
-     *  calculate the angle between two points and the direction of the north)
-     *
-     * @param  点A(L.Latlng)  PointA
-     * @param  点B(L.Latlng)  PointB
-     * @return result:  AB角度 (the angle of AB (calculated result degree))
-     *
-     * @version   2016-08-19
-     *
-     * @see    Math.atan2()用于返回从x轴到指定坐标点(x, y)的角度(以弧度为单位);y/x = tan#
-     *         Math.atan2 () returns the angle (in radians) from the x-axis to the specified coordinate point (x, y); y / x = tan #
-     * @version   2016-08-19
-     */
-    getAngle : function(A, B){
-        var angle = null;
-        var latA = A.lat;
-        var lonA = A.lon;
-        var latB = B.lat;
-        var lonB = B.lon;
+		return canvas;
+	},
 
-        // 注意经度或者纬度相等 (when longitude or latitude is equal)
-        if(lonA == lonB && latA>latB ){
-            angle = Math.PI;
-        }
-        else if(lonA == lonB && latA < latB ){
-            angle = 0	;
-        }
-        else if(lonA > lonB && latA == latB ){
-            angle = -(Math.PI/2);
-        }
-        else if(lonA < lonB && latA == latB ){
-            angle = Math.PI/2	;
-        }
+	_drawImage: function (context) {
+		let x = this.options.iconSize.x / 2;
+		let y = this.options.iconSize.y / 2;
+		context.translate(x, y);
+		context.rotate(this._angle);
+		context.translate(-x, -y);
+		let dx = (this.options.iconSize.x - this.options.htmlImageElement.width) / 2;
+		let dy = (this.options.iconSize.y - this.options.htmlImageElement.height) / 2;
+		context.drawImage(this.options.htmlImageElement, dx, dy);
+	},
 
-        // 注意经度或者纬度都不相等 (Longitude and latitude are not equal)
-        else{
-            var x1 = A.lat*Math.pow(10,12);
-            var x2 = B.lat*Math.pow(10,12);
-            var y1 = A.lon*Math.pow(10,12);
-            var y2 = B.lon*Math.pow(10,12);
-            angle = Math.atan2(y2-y1,x2-x1)
-        }
-        this.options.angle = angle;
-        return angle;
-    },
+	/**
+	 * Set the angle between the maker and the north
+	 * @param {number} angle Radians
+	 * @return {L.AngleIcon} this
+	 */
+	setAngle: function (angle) {
 
-    /**
-     * 设置maker 和正北方向 角度
-     * Set the angle between the maker and the north
-     * @param heading (Unit: radian)
-     */
-    setHeading : function(heading) {
+		if (!Number.isNaN(angle)) {
+			this._angle = angle % 360;
+		}
 
-        if(!heading){
-            heading = this.options.angle;
-        }
-        this.options.course = (heading % 360);
-        var s = this.options.iconSize;
+		return this;
+	},
 
-        //我们不需要在这里显示的调用draw()方法，因为map.addLayer(layer)会调用这个方法
-        //We do not need to call draw() as shown here
-        //because map.addLayer (layer) will call this method
-        //this.draw(this.ctx, s.x, s.y);
-    }
+	/**
+	 * @return {number} angle Radians
+	 */
+	getAngle: function () {
+		return this._angle;
+	}
 });
 
-// AngleMarker继承Marker并添加setHeading 和 getAngle 方法
-// AngleMarker extends from Marker and adds the setHeading and getAngle methods
-L.AngleMarker = L.Marker.extend({
-    getAngle : function (A, B) {
-        return this.options.icon.getAngle(A, B);
-    },
-    setHeading: function(heading) {
-        this.options.icon.setHeading(heading);
-    }
+L.DirectionMarker = L.Marker.extend({
+
+	_latLngSouth: null,
+
+	/**
+	 * @override
+	 * @param {object} options
+	 * @param {HTMLImageElement} [options.htmlImageElement] Tag <img>, la imagen ya preparada tiene prioridad sobre svg recibida
+	 * @param {SVGSVGElement} [options.svgSVGElement] Tag <svg>, si no tengo la image preparada, prepara una con la svg recibida
+	 */
+	initialize: function (latLng, options) {
+
+		if (!options.htmlImageElement) {
+			let svgSVGElement = options.svgSVGElement;
+
+			let htmlImageElement = new Image();
+			htmlImageElement.width = svgSVGElement.getAttribute("width");
+			htmlImageElement.height = svgSVGElement.getAttribute("height");
+
+			let xml = (new XMLSerializer).serializeToString(svgSVGElement);
+			htmlImageElement.src = "data:image/svg+xml;charset=utf-8," + xml;
+
+			options.htmlImageElement = htmlImageElement;
+		}
+
+		options.icon = new L.AngleIcon({
+			htmlImageElement: options.htmlImageElement
+		});
+
+		this._latLngSouth = latLng;
+
+		L.Marker.prototype.initialize.call(this, latLng, options);
+	},
+
+	/**
+	 * @param {L.LatLng} latLng Point south
+	 * @return {L.DirectionMarker} this
+	 */
+	setLatLngSouth: function (latLng) {
+		let latLngNorth = this._latlng;
+
+		let angle = 0;
+		if (latLng.lng == latLngNorth.lng && latLng.lat > latLngNorth.lat) { // when lnggitude or latitude is equal
+			angle = Math.PI;
+		} else if (latLng.lng == latLngNorth.lng && latLng.lat < latLngNorth.lat) {
+			angle = 0;
+		} else if (latLng.lng > latLngNorth.lng && latLng.lat == latLngNorth.lat) {
+			angle = -(Math.PI / 2);
+		} else if (latLng.lng < latLngNorth.lng && latLng.lat == latLngNorth.lat) {
+			angle = Math.PI / 2;
+		} else { // lnggitude and latitude are not equal
+			let x1 = latLng.lat * Math.pow(10, 12);
+			let x2 = latLngNorth.lat * Math.pow(10, 12);
+			let y1 = latLng.lng * Math.pow(10, 12);
+			let y2 = latLngNorth.lng * Math.pow(10, 12);
+
+			angle = Math.atan2(y2 - y1, x2 - x1)
+		}
+
+		this.options.icon.setAngle(angle);
+		this._latLngSouth = latLng;
+
+		return this;
+	},
+
+	/**
+	 * @return {L.LatLng} latLng Point south
+	 */
+	getLatLngSouth: function () {
+		return this._latLngSouth;
+	},
+
+	/**
+	 * @param {number} angle Radians
+	 * @return {L.DirectionMarker} this
+	 */
+	setAngle: function (angle) {
+		this.options.icon.setAngle(angle);
+		return this;
+	},
+
+	/**
+	 * @param {number} angle Radians
+	 */
+	getAngle: function () {
+		return this.options.icon.getAngle();
+	}
 });
 
-L.angleMarker = function(pos, options) {
-
-    options.icon = new L.AngleIcon({
-        ciFlag:options.labelFlag,
-        label:options.label,
-        textColor:options.labelColor,
-        img: options.img
-    });
-
-    return new L.AngleMarker(pos,options);
+L.directionMarker = function (latLng, options) {
+	return new L.DirectionMarker(latLng, options);
 };
