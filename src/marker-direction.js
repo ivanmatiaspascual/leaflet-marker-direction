@@ -220,6 +220,21 @@ L.DirectionMarker = L.Marker.extend({
 	},
 
 	/**
+	 * @param {HTMLImageElement} htmlImageElement
+	 * @return {L.DirectionMarker} this
+	 */
+	setHTMLImageElement: function (htmlImageElement) {
+		if (this.options.htmlImageElement !== htmlImageElement) {
+			this.options.svgSVGElement = null;
+			this.options.htmlImageElement = htmlImageElement;
+			this.options.icon.setHTMLImageElement(this.options.htmlImageElement);
+			this._refresh();
+		}
+
+		return this;
+	},
+
+	/**
 	 * @param {@link https://leafletjs.com/reference-1.4.0.html#latlng L.LatLng} latLng Point north
 	 * @return {L.DirectionMarker} this
 	 */
